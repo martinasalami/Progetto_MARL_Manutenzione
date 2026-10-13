@@ -89,10 +89,11 @@ class MaintenanceEnv:
 class QLearningAgent:
     """Represent a tabular Q-learning agent"""
 
-    def __init__(self, alpha=0.12, gamma=0.95):
-        """Initialize the Q-table and learning parameters"""
+    def __init__(self, alpha=0.12, gamma=0.95, seed=None):
+        """Initialize Q-values, learning parameters, and random generator"""
         self.alpha = alpha
         self.gamma = gamma
+        self.rng = random.Random(seed)
 
         self.q_table = [
             [0.0 for _ in range(N_ACTIONS)]
@@ -113,6 +114,19 @@ class QLearningAgent:
 
         # Update the Q-table
         self.q_table[state][action] += self.alpha * td_error
+
+    def choose_action(self, state, epsilon):
+        """Select an action using an epsilon-greedy policy"""
+
+        # Exploration
+        if self.rng.random() < epsilon:
+            return self.rng.randrange(N_ACTIONS)
+
+        # Exploitation
+        if self.q_table[state][PRODUCE] >= self.q_table[state][MAINTAIN]:
+            return PRODUCE
+        else:
+            return MAINTAIN
 
 def test_worn_transitions(n_trials=10000):
     """Verify transition probabilities when producing from Worn"""
@@ -234,3 +248,32 @@ if __name__ == "__main__":
     assert abs(updated_q - 4.804) < 1e-9
 
     print("Test Q-learning update: OK")
+
+    # Test epsilon-greedy
+    agent = QLearningAgent(seed=11)
+
+    agent.q_table[WORN][PRODUCE] = 2.0
+    agent.q_table[WORN][MAINTAIN] = 5.0
+
+    # Test exploitation
+    action = agent.choose_action(WORN, epsilon=0.0)
+
+    assert action == MAINTAIN
+    print("\nTest exploitation: OK")
+
+    # Test exploration
+    actions = [
+        agent.choose_action(WORN, epsilon=1.0)
+        for _ in range(200)
+    ]
+
+    n_produce = actions.count(PRODUCE)
+    n_maintain = actions.count(MAINTAIN)
+
+    print(f"Produce: {n_produce}")
+    print(f"Maintain: {n_maintain}")
+
+    assert n_produce > 0
+    assert n_maintain > 0
+
+    print("Test exploration: OK")
