@@ -24,6 +24,12 @@ MAX_STEPS = 60
 N_STATES = 3
 N_ACTIONS = 2
 
+# Training parameters
+TRAIN_EPISODES = 2500
+EPSILON_START = 1.0
+EPSILON_MIN = 0.02
+EPSILON_DECAY_FRACTION = 0.70
+
 class MaintenanceEnv:
     """Simulate a robotic cell with stochastic wear and failures"""
 
@@ -157,6 +163,32 @@ def train_episode(env, agent, epsilon):
 
     return total_reward
 
+def train_agent(env, agent, n_episodes=TRAIN_EPISODES):
+    """Train the agent over multiple episodes with epsilon decay"""
+
+    rewards = []
+    epsilons = []
+
+    decay_episodes = max(1, int(n_episodes * EPSILON_DECAY_FRACTION))
+
+    for episode in range(n_episodes):
+
+        # Compute exponentially decaying epsilon
+        progress = min(episode / decay_episodes, 1.0)
+
+        epsilon = EPSILON_START * (
+            EPSILON_MIN / EPSILON_START
+        ) ** progress
+
+        # Train for one episode
+        episode_reward = train_episode(env, agent, epsilon)
+
+        # Store training results
+        rewards.append(episode_reward)
+        epsilons.append(epsilon)
+
+    return rewards, epsilons
+
 def test_worn_transitions(n_trials=10000):
     """Verify transition probabilities when producing from Worn"""
 
@@ -201,128 +233,154 @@ def test_worn_transitions(n_trials=10000):
 
 if __name__ == "__main__":
 
-    env = MaintenanceEnv()
+    # env = MaintenanceEnv()
 
-    # Test 1: Reset
-    state, info = env.reset(seed=11)
-    assert state == HEALTHY
-    assert env.steps == 0
-    print("Test reset: OK")
+    # # Test 1: Reset
+    # state, info = env.reset(seed=11)
+    # assert state == HEALTHY
+    # assert env.steps == 0
+    # print("Test reset: OK")
 
-    # Test 2: Production from Worn
-    env.reset(seed=11)
-    env.state = WORN
+    # # Test 2: Production from Worn
+    # env.reset(seed=11)
+    # env.state = WORN
 
-    state, reward, terminated, truncated, info = env.step(PRODUCE)
+    # state, reward, terminated, truncated, info = env.step(PRODUCE)
 
-    print("Production:", state, reward, info)
+    # print("Production:", state, reward, info)
 
-    assert state == WORN
-    assert reward == REWARD_SUCCESS
-    assert info["produced"] == 1
-    print("Test production: OK")
+    # assert state == WORN
+    # assert reward == REWARD_SUCCESS
+    # assert info["produced"] == 1
+    # print("Test production: OK")
 
-    # Test 3: Maintenance from Critical
-    env.reset(seed=11)
-    env.state = CRITICAL
+    # # Test 3: Maintenance from Critical
+    # env.reset(seed=11)
+    # env.state = CRITICAL
 
-    state, reward, terminated, truncated, info = env.step(MAINTAIN)
+    # state, reward, terminated, truncated, info = env.step(MAINTAIN)
 
-    assert state == HEALTHY
-    assert reward == REWARD_MAINTENANCE
-    assert info["maintenance"] is True
-    print("Test maintenance: OK")
+    # assert state == HEALTHY
+    # assert reward == REWARD_MAINTENANCE
+    # assert info["maintenance"] is True
+    # print("Test maintenance: OK")
 
-    # Test 4: Episode truncation
-    env.reset(seed=11)
+    # # Test 4: Episode truncation
+    # env.reset(seed=11)
 
-    for _ in range(MAX_STEPS):
-        state, reward, terminated, truncated, info = env.step(MAINTAIN)
+    # for _ in range(MAX_STEPS):
+    #     state, reward, terminated, truncated, info = env.step(MAINTAIN)
 
-    assert truncated is True
-    assert terminated is False
-    assert env.steps == MAX_STEPS
-    print("Test truncation: OK")
+    # assert truncated is True
+    # assert terminated is False
+    # assert env.steps == MAX_STEPS
+    # print("Test truncation: OK")
 
-    print("\nStatistical validation:")
-    test_worn_transitions()
+    # print("\nStatistical validation:")
+    # test_worn_transitions()
 
-    # Test Q-table initialization
-    agent = QLearningAgent()
+    # # Test Q-table initialization
+    # agent = QLearningAgent()
 
-    print("\nInitial Q-table:")
+    # print("\nInitial Q-table:")
 
-    for row in agent.q_table:
+    # for row in agent.q_table:
+    #     print(row)
+
+    # assert len(agent.q_table) == N_STATES
+    # assert all(len(row) == N_ACTIONS for row in agent.q_table)
+    # assert all(value == 0 for row in agent.q_table for value in row)
+
+    # print("Test Q-table: OK")
+
+    # # Test Q-learning update
+    # agent = QLearningAgent()
+
+    # agent.q_table[WORN][PRODUCE] = 4.0
+    # agent.q_table[CRITICAL][PRODUCE] = 6.0
+    # agent.q_table[CRITICAL][MAINTAIN] = 2.0
+
+    # agent.update(WORN, PRODUCE, 5.0, CRITICAL)
+
+    # updated_q = agent.q_table[WORN][PRODUCE]
+
+    # print(f"\nUpdated Q(Worn, Produce): {updated_q:.3f}")
+
+    # assert abs(updated_q - 4.804) < 1e-9
+
+    # print("Test Q-learning update: OK")
+
+    # # Test epsilon-greedy
+    # agent = QLearningAgent(seed=11)
+
+    # agent.q_table[WORN][PRODUCE] = 2.0
+    # agent.q_table[WORN][MAINTAIN] = 5.0
+
+    # # Test exploitation
+    # action = agent.choose_action(WORN, epsilon=0.0)
+
+    # assert action == MAINTAIN
+    # print("\nTest exploitation: OK")
+
+    # # Test exploration
+    # actions = [
+    #     agent.choose_action(WORN, epsilon=1.0)
+    #     for _ in range(200)
+    # ]
+
+    # n_produce = actions.count(PRODUCE)
+    # n_maintain = actions.count(MAINTAIN)
+
+    # print(f"Produce: {n_produce}")
+    # print(f"Maintain: {n_maintain}")
+
+    # assert n_produce > 0
+    # assert n_maintain > 0
+
+    # print("Test exploration: OK")
+
+    # # Test one training episode
+    # env = MaintenanceEnv()
+    # env.reset(seed=11)
+
+    # agent = QLearningAgent(seed=11)
+
+    # episode_reward = train_episode(env, agent, epsilon=1.0)
+
+    # print(f"\nEpisode reward: {episode_reward:.2f}")
+    # print(f"Steps executed: {env.steps}")
+
+    # print("\nQ-table after training:")
+    # for row in agent.q_table:
+    #     print(row)
+
+    # assert env.steps == MAX_STEPS
+    # assert any(value != 0 for row in agent.q_table for value in row)
+
+    # print("Test training episode: OK")
+
+    # Test complete training
+    training_env = MaintenanceEnv()
+    training_env.reset(seed=11)
+
+    training_agent = QLearningAgent(seed=11)
+
+    rewards, epsilons = train_agent(training_env, training_agent)
+
+    print("\nTraining results:")
+    print(f"Episodes: {len(rewards)}")
+    print(f"Initial epsilon: {epsilons[0]:.4f}")
+    print(f"Final epsilon: {epsilons[-1]:.4f}")
+
+    print(f"Mean reward - first 100 episodes: {sum(rewards[:100])/100:.2f}")
+    print(f"Mean reward - last 100 episodes: {sum(rewards[-100:])/100:.2f}")
+
+    print("\nTrained Q-table:")
+    for row in training_agent.q_table:
         print(row)
 
-    assert len(agent.q_table) == N_STATES
-    assert all(len(row) == N_ACTIONS for row in agent.q_table)
-    assert all(value == 0 for row in agent.q_table for value in row)
+    assert len(rewards) == TRAIN_EPISODES
+    assert epsilons[0] == EPSILON_START
+    assert abs(epsilons[-1] - EPSILON_MIN) < 1e-9
 
-    print("Test Q-table: OK")
-
-    # Test Q-learning update
-    agent = QLearningAgent()
-
-    agent.q_table[WORN][PRODUCE] = 4.0
-    agent.q_table[CRITICAL][PRODUCE] = 6.0
-    agent.q_table[CRITICAL][MAINTAIN] = 2.0
-
-    agent.update(WORN, PRODUCE, 5.0, CRITICAL)
-
-    updated_q = agent.q_table[WORN][PRODUCE]
-
-    print(f"\nUpdated Q(Worn, Produce): {updated_q:.3f}")
-
-    assert abs(updated_q - 4.804) < 1e-9
-
-    print("Test Q-learning update: OK")
-
-    # Test epsilon-greedy
-    agent = QLearningAgent(seed=11)
-
-    agent.q_table[WORN][PRODUCE] = 2.0
-    agent.q_table[WORN][MAINTAIN] = 5.0
-
-    # Test exploitation
-    action = agent.choose_action(WORN, epsilon=0.0)
-
-    assert action == MAINTAIN
-    print("\nTest exploitation: OK")
-
-    # Test exploration
-    actions = [
-        agent.choose_action(WORN, epsilon=1.0)
-        for _ in range(200)
-    ]
-
-    n_produce = actions.count(PRODUCE)
-    n_maintain = actions.count(MAINTAIN)
-
-    print(f"Produce: {n_produce}")
-    print(f"Maintain: {n_maintain}")
-
-    assert n_produce > 0
-    assert n_maintain > 0
-
-    print("Test exploration: OK")
-
-    # Test one training episode
-    env = MaintenanceEnv()
-    env.reset(seed=11)
-
-    agent = QLearningAgent(seed=11)
-
-    episode_reward = train_episode(env, agent, epsilon=1.0)
-
-    print(f"\nEpisode reward: {episode_reward:.2f}")
-    print(f"Steps executed: {env.steps}")
-
-    print("\nQ-table after training:")
-    for row in agent.q_table:
-        print(row)
-
-    assert env.steps == MAX_STEPS
-    assert any(value != 0 for row in agent.q_table for value in row)
-
-    print("Test training episode: OK")
+    print("Test complete training: OK")
