@@ -225,7 +225,54 @@ def train_multiple_runs(seeds=(11, 23, 37)):
 
     return runs
 
+def evaluate_agent(agent, n_episodes=300):
+    """Evaluate a trained agent on unseen episodes"""
 
+    env = MaintenanceEnv()
+
+    total_reward = 0.0
+    total_failures = 0
+    total_maintenance = 0
+    total_produced = 0
+    failure_free_episodes = 0
+
+    for episode in range(n_episodes):
+
+        # Use new reproducible test scenarios
+        state, _ = env.reset(seed=900000 + episode)
+
+        done = False
+        episode_failures = 0
+
+        while not done:
+
+            # Select the best learned action
+            action = agent.choose_action(state, epsilon=0.0)
+
+            # Execute the action without learning
+            next_state, reward, terminated, truncated, info = env.step(action)
+
+            # Collect performance metrics
+            total_reward += reward
+            total_failures += int(info["failure"])
+            total_maintenance += int(info["maintenance"])
+            total_produced += info["produced"]
+
+            episode_failures += int(info["failure"])
+
+            state = next_state
+            done = terminated or truncated
+
+        if episode_failures == 0:
+            failure_free_episodes += 1
+
+    return {
+        "mean_reward": total_reward / n_episodes,
+        "mean_failures": total_failures / n_episodes,
+        "mean_maintenance": total_maintenance / n_episodes,
+        "mean_produced": total_produced / n_episodes,
+        "failure_free_rate": failure_free_episodes / n_episodes
+    }
 
 def test_worn_transitions(n_trials=10000):
     """Verify transition probabilities when producing from Worn"""
@@ -431,3 +478,53 @@ if __name__ == "__main__":
     assert runs[0]["agent"] is not runs[1]["agent"]
 
     print("\nTest independent training: OK")
+
+    # Test evaluation using the first trained agent
+    agent = runs[0]["agent"]
+
+    q_before = [row.copy() for row in agent.q_table]
+
+    results = evaluate_agent(agent)
+
+    print("\nEvaluation - Seed 11")
+    print(f"Mean reward: {results['mean_reward']:.2f}")
+    print(f"Mean failures: {results['mean_failures']:.2f}")
+    print(f"Mean maintenance: {results['mean_maintenance']:.2f}")
+    print(f"Mean produced units: {results['mean_produced']:.2f}")
+    print(f"Failure-free rate: {results['failure_free_rate']:.2%}")
+
+    # Verify that evaluation does not modify the Q-table
+    assert agent.q_table == q_before
+
+    # Verify that every step has exactly one outcome
+    assert abs(
+        results["mean_failures"]
+        + results["mean_maintenance"]
+        + results["mean_produced"]
+        - MAX_STEPS
+    ) < 1e-9
+
+    print("Test evaluation: OK")
+
+    # Evaluate all trained agents
+    print("\nEvaluation of all agents:")
+
+    for run in runs:
+
+        results = evaluate_agent(run["agent"])
+
+        # Store evaluation results
+        run["evaluation"] = results
+
+        print(f"\nSeed: {run['seed']}")
+        print(f"Policy: {run['policy']}")
+        print(f"Mean reward: {results['mean_reward']:.2f}")
+        print(f"Mean failures: {results['mean_failures']:.2f}")
+        print(f"Mean maintenance: {results['mean_maintenance']:.2f}")
+        print(f"Mean produced units: {results['mean_produced']:.2f}")
+        print(f"Failure-free rate: {results['failure_free_rate']:.2%}")
+
+    # Verify identical policies produce identical results
+    assert runs[0]["evaluation"] == runs[1]["evaluation"]
+
+    print("\nTest multi-agent evaluation: OK")
