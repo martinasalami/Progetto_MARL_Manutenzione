@@ -128,6 +128,35 @@ class QLearningAgent:
         else:
             return MAINTAIN
 
+def train_episode(env, agent, epsilon):
+    """Train the agent for one episode"""
+
+    state, _ = env.reset()
+    total_reward = 0.0
+    done = False
+
+    while not done:
+
+        # Select an action
+        action = agent.choose_action(state, epsilon)
+
+        # Interact with the environment
+        next_state, reward, terminated, truncated, info = env.step(action)
+
+        # Update the Q-table
+        agent.update(state, action, reward, next_state)
+
+        # Accumulate reward
+        total_reward += reward
+
+        # Move to the next state
+        state = next_state
+
+        # Check episode completion
+        done = terminated or truncated
+
+    return total_reward
+
 def test_worn_transitions(n_trials=10000):
     """Verify transition probabilities when producing from Worn"""
 
@@ -277,3 +306,23 @@ if __name__ == "__main__":
     assert n_maintain > 0
 
     print("Test exploration: OK")
+
+    # Test one training episode
+    env = MaintenanceEnv()
+    env.reset(seed=11)
+
+    agent = QLearningAgent(seed=11)
+
+    episode_reward = train_episode(env, agent, epsilon=1.0)
+
+    print(f"\nEpisode reward: {episode_reward:.2f}")
+    print(f"Steps executed: {env.steps}")
+
+    print("\nQ-table after training:")
+    for row in agent.q_table:
+        print(row)
+
+    assert env.steps == MAX_STEPS
+    assert any(value != 0 for row in agent.q_table for value in row)
+
+    print("Test training episode: OK")
