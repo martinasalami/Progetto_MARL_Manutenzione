@@ -21,6 +21,9 @@ REWARD_FAILURE = -18.0
 # Episode duration
 MAX_STEPS = 60
 
+N_STATES = 3
+N_ACTIONS = 2
+
 class MaintenanceEnv:
     """Simulate a robotic cell with stochastic wear and failures"""
 
@@ -82,6 +85,34 @@ class MaintenanceEnv:
         truncated = self.steps >= MAX_STEPS
 
         return self.state, reward, terminated, truncated, info
+
+class QLearningAgent:
+    """Represent a tabular Q-learning agent"""
+
+    def __init__(self, alpha=0.12, gamma=0.95):
+        """Initialize the Q-table and learning parameters"""
+        self.alpha = alpha
+        self.gamma = gamma
+
+        self.q_table = [
+            [0.0 for _ in range(N_ACTIONS)]
+            for _ in range(N_STATES)
+        ]
+
+    def update(self, state, action, reward, next_state):
+        """Update a Q-value using temporal-difference learning"""
+
+        current_q = self.q_table[state][action]
+
+        # Estimate the best future Q-value
+        best_next_q = max(self.q_table[next_state])
+
+        # Compute the temporal-difference target and error
+        td_target = reward + self.gamma * best_next_q
+        td_error = td_target - current_q
+
+        # Update the Q-table
+        self.q_table[state][action] += self.alpha * td_error
 
 def test_worn_transitions(n_trials=10000):
     """Verify transition probabilities when producing from Worn"""
@@ -172,3 +203,34 @@ if __name__ == "__main__":
 
     print("\nStatistical validation:")
     test_worn_transitions()
+
+    # Test Q-table initialization
+    agent = QLearningAgent()
+
+    print("\nInitial Q-table:")
+
+    for row in agent.q_table:
+        print(row)
+
+    assert len(agent.q_table) == N_STATES
+    assert all(len(row) == N_ACTIONS for row in agent.q_table)
+    assert all(value == 0 for row in agent.q_table for value in row)
+
+    print("Test Q-table: OK")
+
+    # Test Q-learning update
+    agent = QLearningAgent()
+
+    agent.q_table[WORN][PRODUCE] = 4.0
+    agent.q_table[CRITICAL][PRODUCE] = 6.0
+    agent.q_table[CRITICAL][MAINTAIN] = 2.0
+
+    agent.update(WORN, PRODUCE, 5.0, CRITICAL)
+
+    updated_q = agent.q_table[WORN][PRODUCE]
+
+    print(f"\nUpdated Q(Worn, Produce): {updated_q:.3f}")
+
+    assert abs(updated_q - 4.804) < 1e-9
+
+    print("Test Q-learning update: OK")
