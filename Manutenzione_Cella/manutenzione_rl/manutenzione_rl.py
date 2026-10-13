@@ -189,6 +189,44 @@ def train_agent(env, agent, n_episodes=TRAIN_EPISODES):
 
     return rewards, epsilons
 
+def train_multiple_runs(seeds=(11, 23, 37)):
+    """Train independent agents using different random seeds"""
+
+    runs = []
+
+    for seed in seeds:
+
+        # Create a new environment and agent
+        env = MaintenanceEnv()
+        env.reset(seed=seed)
+
+        agent = QLearningAgent(seed=seed)
+
+        # Train the agent
+        rewards, _ = train_agent(env, agent)
+
+        # Extract the learned greedy policy
+        policy = [
+            agent.choose_action(state, epsilon=0.0)
+            for state in range(N_STATES)
+        ]
+
+        # Store the results
+        runs.append({
+            "seed": seed,
+            "agent": agent,
+            "rewards": rewards,
+            "policy": policy
+        })
+
+        print(f"\nSeed: {seed}")
+        print(f"Last 100 mean reward: {sum(rewards[-100:])/100:.2f}")
+        print(f"Learned policy: {policy}")
+
+    return runs
+
+
+
 def test_worn_transitions(n_trials=10000):
     """Verify transition probabilities when producing from Worn"""
 
@@ -384,3 +422,12 @@ if __name__ == "__main__":
     assert abs(epsilons[-1] - EPSILON_MIN) < 1e-9
 
     print("Test complete training: OK")
+
+    # Test independent training runs
+    runs = train_multiple_runs()
+
+    assert len(runs) == 3
+    assert all(len(run["rewards"]) == TRAIN_EPISODES for run in runs)
+    assert runs[0]["agent"] is not runs[1]["agent"]
+
+    print("\nTest independent training: OK")
