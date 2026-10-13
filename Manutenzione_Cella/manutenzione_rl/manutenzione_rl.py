@@ -169,3 +169,6 @@ if __name__ == "__main__":
     assert terminated is False
     assert env.steps == MAX_STEPS
     print("Test truncation: OK")
+
+    print("\nStatistical validation:")
+    test_worn_transitions()
