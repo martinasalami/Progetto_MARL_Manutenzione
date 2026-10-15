@@ -77,7 +77,7 @@ class MaintenanceEnv:
 
         else:
             # Check if a failure occurs
-            if self.rng.random() < FAILURE_PROB[self.state]: # how to simulate a probability
+            if self.rng.random() < FAILURE_PROB[self.state]:
                 self.state = HEALTHY
                 reward = REWARD_FAILURE
                 info["failure"] = True
@@ -552,7 +552,7 @@ def plot_learning_curve(runs, window=100):
     plt.plot(
         range(1, n_episodes + 1),
         moving_average,
-        label="Moving average (100 episodes)"
+        label=f"Moving average ({window} episodes)"
     )
 
     plt.xlabel("Training episode")
@@ -651,6 +651,7 @@ def plot_q_table(agent, seed):
                 bbox=bbox
             )
 
+    fig.colorbar(image, ax=ax, label="Q-value")
     plt.tight_layout()
 
     # Save the plot
@@ -765,352 +766,47 @@ def test_worn_transitions(n_trials=10000):
 
     print("Test probabilities: OK")
 
-if __name__ == "__main__":
+def main():
+    """Run the complete maintenance RL experiment"""
 
-    # env = MaintenanceEnv()
-
-    # # Test 1: Reset
-    # state, info = env.reset(seed=11)
-    # assert state == HEALTHY
-    # assert env.steps == 0
-    # print("Test reset: OK")
-
-    # # Test 2: Production from Worn
-    # env.reset(seed=11)
-    # env.state = WORN
-
-    # state, reward, terminated, truncated, info = env.step(PRODUCE)
-
-    # print("Production:", state, reward, info)
-
-    # assert state == WORN
-    # assert reward == REWARD_SUCCESS
-    # assert info["produced"] == 1
-    # print("Test production: OK")
-
-    # # Test 3: Maintenance from Critical
-    # env.reset(seed=11)
-    # env.state = CRITICAL
-
-    # state, reward, terminated, truncated, info = env.step(MAINTAIN)
-
-    # assert state == HEALTHY
-    # assert reward == REWARD_MAINTENANCE
-    # assert info["maintenance"] is True
-    # print("Test maintenance: OK")
-
-    # # Test 4: Episode truncation
-    # env.reset(seed=11)
-
-    # for _ in range(MAX_STEPS):
-    #     state, reward, terminated, truncated, info = env.step(MAINTAIN)
-
-    # assert truncated is True
-    # assert terminated is False
-    # assert env.steps == MAX_STEPS
-    # print("Test truncation: OK")
-
-    # print("\nStatistical validation:")
-    # test_worn_transitions()
-
-    # # Test Q-table initialization
-    # agent = QLearningAgent()
-
-    # print("\nInitial Q-table:")
-
-    # for row in agent.q_table:
-    #     print(row)
-
-    # assert len(agent.q_table) == N_STATES
-    # assert all(len(row) == N_ACTIONS for row in agent.q_table)
-    # assert all(value == 0 for row in agent.q_table for value in row)
-
-    # print("Test Q-table: OK")
-
-    # # Test Q-learning update
-    # agent = QLearningAgent()
-
-    # agent.q_table[WORN][PRODUCE] = 4.0
-    # agent.q_table[CRITICAL][PRODUCE] = 6.0
-    # agent.q_table[CRITICAL][MAINTAIN] = 2.0
-
-    # agent.update(WORN, PRODUCE, 5.0, CRITICAL)
-
-    # updated_q = agent.q_table[WORN][PRODUCE]
-
-    # print(f"\nUpdated Q(Worn, Produce): {updated_q:.3f}")
-
-    # assert abs(updated_q - 4.804) < 1e-9
-
-    # print("Test Q-learning update: OK")
-
-    # # Test epsilon-greedy
-    # agent = QLearningAgent(seed=11)
-
-    # agent.q_table[WORN][PRODUCE] = 2.0
-    # agent.q_table[WORN][MAINTAIN] = 5.0
-
-    # # Test exploitation
-    # action = agent.choose_action(WORN, epsilon=0.0)
-
-    # assert action == MAINTAIN
-    # print("\nTest exploitation: OK")
-
-    # # Test exploration
-    # actions = [
-    #     agent.choose_action(WORN, epsilon=1.0)
-    #     for _ in range(200)
-    # ]
-
-    # n_produce = actions.count(PRODUCE)
-    # n_maintain = actions.count(MAINTAIN)
-
-    # print(f"Produce: {n_produce}")
-    # print(f"Maintain: {n_maintain}")
-
-    # assert n_produce > 0
-    # assert n_maintain > 0
-
-    # print("Test exploration: OK")
-
-    # # Test one training episode
-    # env = MaintenanceEnv()
-    # env.reset(seed=11)
-
-    # agent = QLearningAgent(seed=11)
-
-    # episode_reward = train_episode(env, agent, epsilon=1.0)
-
-    # print(f"\nEpisode reward: {episode_reward:.2f}")
-    # print(f"Steps executed: {env.steps}")
-
-    # print("\nQ-table after training:")
-    # for row in agent.q_table:
-    #     print(row)
-
-    # assert env.steps == MAX_STEPS
-    # assert any(value != 0 for row in agent.q_table for value in row)
-
-    # print("Test training episode: OK")
-
-    # Test complete training
-    training_env = MaintenanceEnv()
-    training_env.reset(seed=11)
-
-    training_agent = QLearningAgent(seed=11)
-
-    rewards, epsilons = train_agent(training_env, training_agent)
-
-    print("\nTraining results:")
-    print(f"Episodes: {len(rewards)}")
-    print(f"Initial epsilon: {epsilons[0]:.4f}")
-    print(f"Final epsilon: {epsilons[-1]:.4f}")
-
-    print(f"Mean reward - first 100 episodes: {sum(rewards[:100])/100:.2f}")
-    print(f"Mean reward - last 100 episodes: {sum(rewards[-100:])/100:.2f}")
-
-    print("\nTrained Q-table:")
-    for row in training_agent.q_table:
-        print(row)
-
-    assert len(rewards) == TRAIN_EPISODES
-    assert epsilons[0] == EPSILON_START
-    assert abs(epsilons[-1] - EPSILON_MIN) < 1e-9
-
-    print("Test complete training: OK")
-
-    # Test independent training runs
+    # Train three independent agents
     runs = train_multiple_runs()
 
-    assert len(runs) == 3
-    assert all(len(run["rewards"]) == TRAIN_EPISODES for run in runs)
-    assert runs[0]["agent"] is not runs[1]["agent"]
-
-    print("\nTest independent training: OK")
-
-    # Test evaluation using the first trained agent
-    agent = runs[0]["agent"]
-
-    q_before = [row.copy() for row in agent.q_table]
-
-    results = evaluate_agent(agent)
-
-    print("\nEvaluation - Seed 11")
-    print(f"Mean reward: {results['mean_reward']:.2f}")
-    print(f"Mean failures: {results['mean_failures']:.2f}")
-    print(f"Mean maintenance: {results['mean_maintenance']:.2f}")
-    print(f"Mean produced units: {results['mean_produced']:.2f}")
-    print(f"Failure-free rate: {results['failure_free_rate']:.2%}")
-
-    # Verify that evaluation does not modify the Q-table
-    assert agent.q_table == q_before
-
-    # Verify that every step has exactly one outcome
-    assert abs(
-        results["mean_failures"]
-        + results["mean_maintenance"]
-        + results["mean_produced"]
-        - MAX_STEPS
-    ) < 1e-9
-
-    print("Test evaluation: OK")
-
-    # Evaluate all trained agents
-    print("\nEvaluation of all agents:")
-
+    # Evaluate the trained agents
     for run in runs:
-
-        results = evaluate_agent(run["agent"])
-
-        # Store evaluation results
-        run["evaluation"] = results
-
-        print(f"\nSeed: {run['seed']}")
-        print(f"Policy: {run['policy']}")
-        print(f"Mean reward: {results['mean_reward']:.2f}")
-        print(f"Mean failures: {results['mean_failures']:.2f}")
-        print(f"Mean maintenance: {results['mean_maintenance']:.2f}")
-        print(f"Mean produced units: {results['mean_produced']:.2f}")
-        print(f"Failure-free rate: {results['failure_free_rate']:.2%}")
-
-    # Verify identical policies produce identical results
-    assert runs[0]["evaluation"] == runs[1]["evaluation"]
-
-    print("\nTest multi-agent evaluation: OK")
+        run["evaluation"] = evaluate_agent(run["agent"])
 
     # Evaluate baseline strategies
-    baseline_names = ["always_produce", "periodic_8", "random"]
+    baseline_names = [
+        "always_produce",
+        "periodic_8",
+        "random"
+    ]
+
     baseline_results = {}
 
-    print("\nBaseline evaluation:")
-
     for name in baseline_names:
+        baseline_results[name] = evaluate_agent(
+            None, baseline=name
+        )
 
-        results = evaluate_agent(None, baseline=name)
-        baseline_results[name] = results
-
-        print(f"\nStrategy: {name}")
-        print(f"Mean reward: {results['mean_reward']:.2f}")
-        print(f"Mean failures: {results['mean_failures']:.2f}")
-        print(f"Mean maintenance: {results['mean_maintenance']:.2f}")
-        print(f"Mean produced units: {results['mean_produced']:.2f}")
-        print(f"Failure-free rate: {results['failure_free_rate']:.2%}")
-
-    # Verify baseline behavior
-    assert baseline_results["always_produce"]["mean_maintenance"] == 0
-    assert baseline_results["periodic_8"]["mean_maintenance"] == 7
-
-    print("\nTest baseline evaluation: OK")
-
-    # Test results comparison
+    # Compare evaluation results
     comparison = print_comparison(runs, baseline_results)
 
-    assert len(comparison) == 4
+    # Generate plots
+    plot_learning_curve(runs)
+    plot_strategy_comparison(comparison)
+    plot_q_table(runs[0]["agent"], runs[0]["seed"])
+    plot_operational_metrics(comparison)
 
-    assert abs(
-        comparison["Q-learning"]["mean_failures"]
-        + comparison["Q-learning"]["mean_maintenance"]
-        + comparison["Q-learning"]["mean_produced"]
-        - MAX_STEPS
-    ) < 1e-9
+    # Save experiment results
+    save_evaluation_summary(comparison)
+    save_q_tables(runs)
+    save_training_history(runs)
+    save_configuration(runs)
 
-    print("\nTest comparison: OK")
+    print("\nExperiment completed successfully")
 
-    # Test learning curve generation
-    plot_path = plot_learning_curve(runs)
 
-    assert plot_path.is_file()
-
-    print("\nTest learning curve: OK")
-    print(f"Plot saved to: {plot_path}")
-
-    # Test strategy comparison plot
-    plot_path = plot_strategy_comparison(comparison)
-
-    assert plot_path.is_file()
-
-    print("\nTest strategy comparison plot: OK")
-
-        # Test Q-table visualization
-    plot_path = plot_q_table(
-        runs[0]["agent"],
-        runs[0]["seed"]
-    )
-
-    assert plot_path.is_file()
-
-    print("\nTest Q-table plot: OK")
-
-    # Test operational metrics plot
-    plot_path = plot_operational_metrics(comparison)
-
-    assert plot_path.is_file()
-
-    print("\nTest operational metrics plot: OK")
-
-    # Test evaluation CSV export
-    csv_path = save_evaluation_summary(comparison)
-
-    assert csv_path.is_file()
-
-    with csv_path.open("r", newline="", encoding="utf-8") as file:
-        rows = list(csv.DictReader(file))
-
-    assert len(rows) == 4
-
-    print("\nTest evaluation CSV: OK")
-    print(f"File saved to: {csv_path}")
-
-    # Test Q-table CSV export
-    q_csv_path = save_q_tables(runs)
-
-    with q_csv_path.open("r", newline="", encoding="utf-8") as file:
-        rows = list(csv.DictReader(file))
-
-    assert q_csv_path.is_file()
-    assert len(rows) == 9
-
-    # Verify the learned policies
-    policy_11 = [
-        row["Greedy action"]
-        for row in rows if row["Seed"] == "11"
-    ]
-
-    policy_37 = [
-        row["Greedy action"]
-        for row in rows if row["Seed"] == "37"
-    ]
-
-    assert policy_11 == ["Produce", "Produce", "Maintain"]
-    assert policy_37 == ["Produce", "Maintain", "Maintain"]
-
-    print("\nTest Q-table CSV: OK")
-    print(f"File saved to: {q_csv_path}")
-
-    # Test training history export
-    history_path = save_training_history(runs)
-
-    with history_path.open("r", newline="", encoding="utf-8") as file:
-        rows = list(csv.DictReader(file))
-
-    assert history_path.is_file()
-    assert len(rows) == TRAIN_EPISODES
-
-    assert abs(float(rows[0]["Epsilon"]) - EPSILON_START) < 1e-9
-    assert abs(float(rows[-1]["Epsilon"]) - EPSILON_MIN) < 1e-9
-
-    print("\nTest training history CSV: OK")
-    print(f"File saved to: {history_path}")
-
-    # Test configuration export
-    config_path = save_configuration(runs)
-
-    with config_path.open("r", encoding="utf-8") as file:
-        config = json.load(file)
-
-    assert config_path.is_file()
-    assert config["training"]["seeds"] == [11, 23, 37]
-    assert config["training"]["episodes"] == TRAIN_EPISODES
-    assert config["environment"]["max_steps"] == MAX_STEPS
-
-    print("\nTest configuration JSON: OK")
+if __name__ == "__main__":
+    main()
