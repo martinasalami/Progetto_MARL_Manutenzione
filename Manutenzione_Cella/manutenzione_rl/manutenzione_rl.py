@@ -1,6 +1,8 @@
 import random
 from pathlib import Path
 import matplotlib.pyplot as plt
+import csv
+import json
 
 # States
 HEALTHY = 0
@@ -222,7 +224,7 @@ def train_multiple_runs(seeds=(11, 23, 37)):
         agent = QLearningAgent(seed=seed)
 
         # Train the agent
-        rewards, _ = train_agent(env, agent)
+        rewards, epsilons = train_agent(env, agent)
 
         # Extract the learned greedy policy
         policy = [
@@ -235,7 +237,8 @@ def train_multiple_runs(seeds=(11, 23, 37)):
             "seed": seed,
             "agent": agent,
             "rewards": rewards,
-            "policy": policy
+            "policy": policy,
+            "epsilons": epsilons
         })
 
         print(f"\nSeed: {seed}")
@@ -341,6 +344,184 @@ def print_comparison(runs, baseline_results):
         )
 
     return strategies
+
+def save_evaluation_summary(strategies):
+    """Save evaluation metrics to a CSV file"""
+
+    output_dir = Path("risultati_manutenzione")
+    output_dir.mkdir(exist_ok=True)
+
+    output_path = output_dir / "evaluation_summary.csv"
+
+    with output_path.open("w", newline="", encoding="utf-8") as file:
+
+        writer = csv.writer(file)
+
+        # Write column headers
+        writer.writerow([
+            "Strategy",
+            "Mean reward",
+            "Mean failures",
+            "Mean maintenance",
+            "Mean produced",
+            "Failure-free rate (%)"
+        ])
+
+        # Write evaluation results
+        for name, result in strategies.items():
+            writer.writerow([
+                name,
+                result["mean_reward"],
+                result["mean_failures"],
+                result["mean_maintenance"],
+                result["mean_produced"],
+                result["failure_free_rate"] * 100
+            ])
+
+    return output_path
+
+def save_q_tables(runs):
+    """Save learned Q-values and greedy policies to CSV"""
+
+    output_dir = Path("risultati_manutenzione")
+    output_dir.mkdir(exist_ok=True)
+
+    output_path = output_dir / "learned_q_tables.csv"
+
+    state_names = ["Healthy", "Worn", "Critical"]
+
+    with output_path.open("w", newline="", encoding="utf-8") as file:
+
+        writer = csv.writer(file)
+
+        writer.writerow([
+            "Seed",
+            "State",
+            "Q Produce",
+            "Q Maintain",
+            "Greedy action"
+        ])
+
+        # Save the Q-table of each trained agent
+        for run in runs:
+
+            q_table = run["agent"].q_table
+
+            for state in range(N_STATES):
+
+                q_produce = q_table[state][PRODUCE]
+                q_maintain = q_table[state][MAINTAIN]
+
+                # Select the action with the highest Q-value
+                best_action = (
+                    "Produce" if q_produce >= q_maintain
+                    else "Maintain"
+                )
+
+                writer.writerow([
+                    run["seed"],
+                    state_names[state],
+                    q_produce,
+                    q_maintain,
+                    best_action
+                ])
+
+    return output_path
+
+def save_training_history(runs, window=100):
+    """Save training rewards and moving averages to CSV"""
+
+    output_dir = Path("risultati_manutenzione")
+    output_dir.mkdir(exist_ok=True)
+
+    output_path = output_dir / "training_history.csv"
+
+    n_episodes = len(runs[0]["rewards"])
+
+    # Compute mean reward across runs
+    mean_rewards = []
+
+    for i in range(n_episodes):
+        values = [run["rewards"][i] for run in runs]
+        mean_rewards.append(sum(values) / len(values))
+
+    with output_path.open("w", newline="", encoding="utf-8") as file:
+
+        writer = csv.writer(file)
+
+        writer.writerow([
+            "Episode",
+            "Epsilon",
+            "Reward seed 11",
+            "Reward seed 23",
+            "Reward seed 37",
+            "Mean reward",
+            "Moving average"
+        ])
+
+        for i in range(n_episodes):
+
+            # Compute moving average
+            start = max(0, i - window + 1)
+
+            moving_avg = (
+                sum(mean_rewards[start:i + 1]) / (i - start + 1)
+            )
+
+            writer.writerow([
+                i + 1,
+                runs[0]["epsilons"][i],
+                runs[0]["rewards"][i],
+                runs[1]["rewards"][i],
+                runs[2]["rewards"][i],
+                mean_rewards[i],
+                moving_avg
+            ])
+
+    return output_path
+
+def save_configuration(runs):
+    """Save environment and training parameters to JSON"""
+
+    output_dir = Path("risultati_manutenzione")
+    output_dir.mkdir(exist_ok=True)
+
+    output_path = output_dir / "config.json"
+
+    agent = runs[0]["agent"]
+
+    config = {
+        "environment": {
+            "states": ["Healthy", "Worn", "Critical"],
+            "actions": ["Produce", "Maintain"],
+            "failure_probabilities": FAILURE_PROB,
+            "degradation_probabilities": DEGRADATION_PROB,
+            "reward_success": REWARD_SUCCESS,
+            "reward_maintenance": REWARD_MAINTENANCE,
+            "reward_failure": REWARD_FAILURE,
+            "max_steps": MAX_STEPS
+        },
+        "training": {
+            "algorithm": "Q-learning",
+            "episodes": TRAIN_EPISODES,
+            "seeds": [run["seed"] for run in runs],
+            "alpha": agent.alpha,
+            "gamma": agent.gamma,
+            "epsilon_start": EPSILON_START,
+            "epsilon_min": EPSILON_MIN,
+            "epsilon_decay_fraction": EPSILON_DECAY_FRACTION
+        },
+        "evaluation": {
+            "episodes": 300,
+            "seed_start": 900000,
+            "epsilon": 0.0
+        }
+    }
+
+    with output_path.open("w", encoding="utf-8") as file:
+        json.dump(config, file, indent=4)
+
+    return output_path
 
 def plot_learning_curve(runs, window=100):
     """Plot the moving average of training rewards across runs"""
@@ -866,3 +1047,70 @@ if __name__ == "__main__":
     assert plot_path.is_file()
 
     print("\nTest operational metrics plot: OK")
+
+    # Test evaluation CSV export
+    csv_path = save_evaluation_summary(comparison)
+
+    assert csv_path.is_file()
+
+    with csv_path.open("r", newline="", encoding="utf-8") as file:
+        rows = list(csv.DictReader(file))
+
+    assert len(rows) == 4
+
+    print("\nTest evaluation CSV: OK")
+    print(f"File saved to: {csv_path}")
+
+    # Test Q-table CSV export
+    q_csv_path = save_q_tables(runs)
+
+    with q_csv_path.open("r", newline="", encoding="utf-8") as file:
+        rows = list(csv.DictReader(file))
+
+    assert q_csv_path.is_file()
+    assert len(rows) == 9
+
+    # Verify the learned policies
+    policy_11 = [
+        row["Greedy action"]
+        for row in rows if row["Seed"] == "11"
+    ]
+
+    policy_37 = [
+        row["Greedy action"]
+        for row in rows if row["Seed"] == "37"
+    ]
+
+    assert policy_11 == ["Produce", "Produce", "Maintain"]
+    assert policy_37 == ["Produce", "Maintain", "Maintain"]
+
+    print("\nTest Q-table CSV: OK")
+    print(f"File saved to: {q_csv_path}")
+
+    # Test training history export
+    history_path = save_training_history(runs)
+
+    with history_path.open("r", newline="", encoding="utf-8") as file:
+        rows = list(csv.DictReader(file))
+
+    assert history_path.is_file()
+    assert len(rows) == TRAIN_EPISODES
+
+    assert abs(float(rows[0]["Epsilon"]) - EPSILON_START) < 1e-9
+    assert abs(float(rows[-1]["Epsilon"]) - EPSILON_MIN) < 1e-9
+
+    print("\nTest training history CSV: OK")
+    print(f"File saved to: {history_path}")
+
+    # Test configuration export
+    config_path = save_configuration(runs)
+
+    with config_path.open("r", encoding="utf-8") as file:
+        config = json.load(file)
+
+    assert config_path.is_file()
+    assert config["training"]["seeds"] == [11, 23, 37]
+    assert config["training"]["episodes"] == TRAIN_EPISODES
+    assert config["environment"]["max_steps"] == MAX_STEPS
+
+    print("\nTest configuration JSON: OK")
