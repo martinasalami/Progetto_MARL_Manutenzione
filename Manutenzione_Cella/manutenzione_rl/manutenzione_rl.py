@@ -1,4 +1,6 @@
 import random
+from pathlib import Path
+import matplotlib.pyplot as plt
 
 # States
 HEALTHY = 0
@@ -340,6 +342,206 @@ def print_comparison(runs, baseline_results):
 
     return strategies
 
+def plot_learning_curve(runs, window=100):
+    """Plot the moving average of training rewards across runs"""
+
+    n_episodes = len(runs[0]["rewards"])
+
+    # Compute mean reward across runs
+    mean_rewards = []
+
+    for i in range(n_episodes):
+        values = [run["rewards"][i] for run in runs]
+        mean_rewards.append(sum(values) / len(values))
+
+    # Compute moving average
+    moving_average = []
+
+    for i in range(n_episodes):
+        start = max(0, i - window + 1)
+        recent_rewards = mean_rewards[start:i + 1]
+
+        moving_average.append(
+            sum(recent_rewards) / len(recent_rewards)
+        )
+
+    # Create the plot
+    plt.figure(figsize=(9, 5))
+
+    plt.plot(
+        range(1, n_episodes + 1),
+        moving_average,
+        label="Moving average (100 episodes)"
+    )
+
+    plt.xlabel("Training episode")
+    plt.ylabel("Mean episode reward")
+    plt.title("Q-learning - Training curve")
+    plt.legend()
+    plt.grid(True, alpha=0.3)
+    plt.tight_layout()
+
+    # Save the plot
+    output_dir = Path("risultati_manutenzione")
+    output_dir.mkdir(exist_ok=True)
+
+    output_path = output_dir / "learning_curve.png"
+
+    plt.savefig(output_path, dpi=150)
+    plt.show()
+
+    return output_path
+
+def plot_strategy_comparison(strategies):
+    """Plot mean evaluation rewards for all strategies"""
+
+    names = list(strategies.keys())
+    rewards = [strategies[name]["mean_reward"] for name in names]
+
+    # Create the bar chart
+    plt.figure(figsize=(9, 5))
+
+    bars = plt.bar(names, rewards)
+
+    plt.bar_label(bars, fmt="%.1f", padding=3)
+
+    plt.xlabel("Strategy")
+    plt.ylabel("Mean total reward (60 steps)")
+    plt.title("Evaluation - Strategy comparison")
+    plt.ylim(0, max(rewards) * 1.15)
+
+    plt.tight_layout()
+
+    # Save the plot
+    output_dir = Path("risultati_manutenzione")
+    output_dir.mkdir(exist_ok=True)
+
+    output_path = output_dir / "strategy_comparison.png"
+
+    plt.savefig(output_path, dpi=150)
+    plt.show()
+
+    return output_path
+
+def plot_q_table(agent, seed):
+    """Plot the learned Q-values and highlight greedy actions"""
+
+    q_table = agent.q_table
+
+    fig, ax = plt.subplots(figsize=(7, 4))
+
+    # Create the heatmap
+    image = ax.imshow(q_table, cmap="Blues", aspect="auto")
+
+    ax.set_xticks([0, 1])
+    ax.set_xticklabels(["Produce", "Maintain"])
+
+    ax.set_yticks([0, 1, 2])
+    ax.set_yticklabels(["Healthy", "Worn", "Critical"])
+
+    ax.set_xlabel("Action")
+    ax.set_ylabel("State")
+    ax.set_title(f"Learned Q-table - Seed {seed}")
+
+    # Display Q-values and highlight the best action
+    for state in range(N_STATES):
+
+        best_action = max(
+            range(N_ACTIONS),
+            key=lambda action: q_table[state][action]
+        )
+
+        for action in range(N_ACTIONS):
+
+            value = q_table[state][action]
+
+            bbox = {
+                "boxstyle": "square,pad=0.5",
+                "facecolor": "none",
+                "edgecolor": "red",
+                "linewidth": 2
+            } if action == best_action else None
+
+            ax.text(
+                action, state, f"{value:.1f}",
+                ha="center",
+                va="center",
+                color="black",
+                bbox=bbox
+            )
+
+    plt.tight_layout()
+
+    # Save the plot
+    output_dir = Path("risultati_manutenzione")
+    output_dir.mkdir(exist_ok=True)
+
+    output_path = output_dir / f"q_table_seed_{seed}.png"
+
+    plt.savefig(output_path, dpi=150)
+    plt.show()
+
+    return output_path
+
+def plot_operational_metrics(strategies):
+    """Compare failures and maintenance actions across strategies"""
+
+    names = list(strategies.keys())
+
+    failures = [
+        strategies[name]["mean_failures"] for name in names
+    ]
+
+    maintenance = [
+        strategies[name]["mean_maintenance"] for name in names
+    ]
+
+    # Define bar positions
+    x = range(len(names))
+    width = 0.35
+
+    fig, ax = plt.subplots(figsize=(9, 5))
+
+    # Plot grouped bars
+    bars_failure = ax.bar(
+        [i - width / 2 for i in x],
+        failures,
+        width,
+        label="Breakdowns"
+    )
+
+    bars_maintenance = ax.bar(
+        [i + width / 2 for i in x],
+        maintenance,
+        width,
+        label="Maintenance actions"
+    )
+
+    # Add labels and formatting
+    ax.bar_label(bars_failure, fmt="%.2f", padding=3)
+    ax.bar_label(bars_maintenance, fmt="%.2f", padding=3)
+
+    ax.set_xticks(list(x))
+    ax.set_xticklabels(names)
+
+    ax.set_xlabel("Strategy")
+    ax.set_ylabel("Mean events per episode (60 steps)")
+    ax.set_title("Evaluation - Operational metrics")
+    ax.legend()
+
+    plt.tight_layout()
+
+    # Save the plot
+    output_dir = Path("risultati_manutenzione")
+    output_dir.mkdir(exist_ok=True)
+
+    output_path = output_dir / "operational_metrics.png"
+
+    plt.savefig(output_path, dpi=150)
+    plt.show()
+
+    return output_path
+
 def test_worn_transitions(n_trials=10000):
     """Verify transition probabilities when producing from Worn"""
 
@@ -632,3 +834,35 @@ if __name__ == "__main__":
     ) < 1e-9
 
     print("\nTest comparison: OK")
+
+    # Test learning curve generation
+    plot_path = plot_learning_curve(runs)
+
+    assert plot_path.is_file()
+
+    print("\nTest learning curve: OK")
+    print(f"Plot saved to: {plot_path}")
+
+    # Test strategy comparison plot
+    plot_path = plot_strategy_comparison(comparison)
+
+    assert plot_path.is_file()
+
+    print("\nTest strategy comparison plot: OK")
+
+        # Test Q-table visualization
+    plot_path = plot_q_table(
+        runs[0]["agent"],
+        runs[0]["seed"]
+    )
+
+    assert plot_path.is_file()
+
+    print("\nTest Q-table plot: OK")
+
+    # Test operational metrics plot
+    plot_path = plot_operational_metrics(comparison)
+
+    assert plot_path.is_file()
+
+    print("\nTest operational metrics plot: OK")
