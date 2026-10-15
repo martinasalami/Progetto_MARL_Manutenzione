@@ -134,6 +134,23 @@ class QLearningAgent:
         else:
             return MAINTAIN
 
+def choose_baseline_action(strategy, step, rng):
+    """Select an action using a fixed baseline strategy"""
+
+    if strategy == "always_produce":
+        return PRODUCE
+
+    elif strategy == "periodic_8":
+        if (step + 1) % 8 == 0:
+            return MAINTAIN
+        return PRODUCE
+
+    elif strategy == "random":
+        return rng.randrange(N_ACTIONS)
+
+    else:
+        raise ValueError("Invalid baseline strategy")
+
 def train_episode(env, agent, epsilon):
     """Train the agent for one episode"""
 
@@ -225,8 +242,8 @@ def train_multiple_runs(seeds=(11, 23, 37)):
 
     return runs
 
-def evaluate_agent(agent, n_episodes=300):
-    """Evaluate a trained agent on unseen episodes"""
+def evaluate_agent(agent, n_episodes=300, baseline=None):
+    """Evaluate a trained agent or a fixed baseline"""
 
     env = MaintenanceEnv()
 
@@ -241,13 +258,21 @@ def evaluate_agent(agent, n_episodes=300):
         # Use new reproducible test scenarios
         state, _ = env.reset(seed=900000 + episode)
 
+        # Initialize an independent random generator
+        baseline_rng = random.Random(1000000 + episode)
+
         done = False
         episode_failures = 0
 
         while not done:
 
-            # Select the best learned action
-            action = agent.choose_action(state, epsilon=0.0)
+            # Select the action based on the evaluation strategy
+            if baseline is None:
+                action = agent.choose_action(state, epsilon=0.0)
+            else:
+                action = choose_baseline_action(
+                    baseline, env.steps, baseline_rng
+                )
 
             # Execute the action without learning
             next_state, reward, terminated, truncated, info = env.step(action)
@@ -273,6 +298,47 @@ def evaluate_agent(agent, n_episodes=300):
         "mean_produced": total_produced / n_episodes,
         "failure_free_rate": failure_free_episodes / n_episodes
     }
+
+def print_comparison(runs, baseline_results):
+    """Compare Q-learning and baseline evaluation results"""
+
+    metrics = [
+        "mean_reward",
+        "mean_failures",
+        "mean_maintenance",
+        "mean_produced",
+        "failure_free_rate"
+    ]
+
+    # Compute average results across trained agents
+    q_results = {}
+
+    for metric in metrics:
+        values = [run["evaluation"][metric] for run in runs]
+        q_results[metric] = sum(values) / len(values)
+
+    # Combine Q-learning and baseline results
+    strategies = {
+        "Always Produce": baseline_results["always_produce"],
+        "Periodic 8": baseline_results["periodic_8"],
+        "Random": baseline_results["random"],
+        "Q-learning": q_results
+    }
+
+    # Print comparison table
+    print("\nStrategy comparison:")
+    print(f"{'Strategy':<18} {'Reward':>8} {'Failures':>9} {'Maintenance':>12} {'Produced':>9}")
+
+    for name, result in strategies.items():
+        print(
+            f"{name:<18}"
+            f"{result['mean_reward']:>8.2f}"
+            f"{result['mean_failures']:>9.2f}"
+            f"{result['mean_maintenance']:>12.2f}"
+            f"{result['mean_produced']:>9.2f}"
+        )
+
+    return strategies
 
 def test_worn_transitions(n_trials=10000):
     """Verify transition probabilities when producing from Worn"""
@@ -528,3 +594,41 @@ if __name__ == "__main__":
     assert runs[0]["evaluation"] == runs[1]["evaluation"]
 
     print("\nTest multi-agent evaluation: OK")
+
+    # Evaluate baseline strategies
+    baseline_names = ["always_produce", "periodic_8", "random"]
+    baseline_results = {}
+
+    print("\nBaseline evaluation:")
+
+    for name in baseline_names:
+
+        results = evaluate_agent(None, baseline=name)
+        baseline_results[name] = results
+
+        print(f"\nStrategy: {name}")
+        print(f"Mean reward: {results['mean_reward']:.2f}")
+        print(f"Mean failures: {results['mean_failures']:.2f}")
+        print(f"Mean maintenance: {results['mean_maintenance']:.2f}")
+        print(f"Mean produced units: {results['mean_produced']:.2f}")
+        print(f"Failure-free rate: {results['failure_free_rate']:.2%}")
+
+    # Verify baseline behavior
+    assert baseline_results["always_produce"]["mean_maintenance"] == 0
+    assert baseline_results["periodic_8"]["mean_maintenance"] == 7
+
+    print("\nTest baseline evaluation: OK")
+
+    # Test results comparison
+    comparison = print_comparison(runs, baseline_results)
+
+    assert len(comparison) == 4
+
+    assert abs(
+        comparison["Q-learning"]["mean_failures"]
+        + comparison["Q-learning"]["mean_maintenance"]
+        + comparison["Q-learning"]["mean_produced"]
+        - MAX_STEPS
+    ) < 1e-9
+
+    print("\nTest comparison: OK")
