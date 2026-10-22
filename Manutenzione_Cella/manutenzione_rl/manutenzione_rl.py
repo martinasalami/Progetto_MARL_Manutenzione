@@ -191,7 +191,6 @@ def train_agent(env, agent, n_episodes=TRAIN_EPISODES):
     epsilons = []
 
     decay_episodes = max(1, int(n_episodes * EPSILON_DECAY_FRACTION))
-    #decay_episodes = 1750
 
     for episode in range(n_episodes):
 
@@ -349,7 +348,11 @@ def print_comparison(runs, baseline_results):
 def save_evaluation_summary(strategies):
     """Save evaluation metrics to a CSV file"""
 
-    output_dir = Path("risultati_manutenzione")
+    output_dir = Path(
+        f"risultati_man_e{TRAIN_EPISODES}"
+        f"_d{int(EPSILON_DECAY_FRACTION * 10):02d}"
+        f"_a{round(QLearningAgent.__init__.__defaults__[0] * 100):03d}"
+    )
     output_dir.mkdir(exist_ok=True)
 
     output_path = output_dir / "evaluation_summary.csv"
@@ -384,7 +387,11 @@ def save_evaluation_summary(strategies):
 def save_q_tables(runs):
     """Save learned Q-values and greedy policies to CSV"""
 
-    output_dir = Path("risultati_manutenzione")
+    output_dir = Path(
+        f"risultati_man_e{TRAIN_EPISODES}"
+        f"_d{int(EPSILON_DECAY_FRACTION * 10):02d}"
+        f"_a{round(QLearningAgent.__init__.__defaults__[0] * 100):03d}"
+    )
     output_dir.mkdir(exist_ok=True)
 
     output_path = output_dir / "learned_q_tables.csv"
@@ -432,7 +439,11 @@ def save_q_tables(runs):
 def save_training_history(runs, window=100):
     """Save training rewards and moving averages to CSV"""
 
-    output_dir = Path("risultati_manutenzione")
+    output_dir = Path(
+        f"risultati_man_e{TRAIN_EPISODES}"
+        f"_d{int(EPSILON_DECAY_FRACTION * 10):02d}"
+        f"_a{round(QLearningAgent.__init__.__defaults__[0] * 100):03d}"
+    )
     output_dir.mkdir(exist_ok=True)
 
     output_path = output_dir / "training_history.csv"
@@ -484,7 +495,11 @@ def save_training_history(runs, window=100):
 def save_configuration(runs):
     """Save environment and training parameters to JSON"""
 
-    output_dir = Path("risultati_manutenzione")
+    output_dir = Path(
+        f"risultati_man_e{TRAIN_EPISODES}"
+        f"_d{int(EPSILON_DECAY_FRACTION * 10):02d}"
+        f"_a{round(QLearningAgent.__init__.__defaults__[0] * 100):03d}"
+    )
     output_dir.mkdir(exist_ok=True)
 
     output_path = output_dir / "config.json"
@@ -564,7 +579,11 @@ def plot_learning_curve(runs, window=100):
     plt.tight_layout()
 
     # Save the plot
-    output_dir = Path("risultati_manutenzione")
+    output_dir = Path(
+        f"risultati_man_e{TRAIN_EPISODES}"
+        f"_d{int(EPSILON_DECAY_FRACTION * 10):02d}"
+        f"_a{round(QLearningAgent.__init__.__defaults__[0] * 100):03d}"
+    )
     output_dir.mkdir(exist_ok=True)
 
     output_path = output_dir / "learning_curve.png"
@@ -595,7 +614,11 @@ def plot_strategy_comparison(strategies):
     plt.tight_layout()
 
     # Save the plot
-    output_dir = Path("risultati_manutenzione")
+    output_dir = Path(
+        f"risultati_man_e{TRAIN_EPISODES}"
+        f"_d{int(EPSILON_DECAY_FRACTION * 10):02d}"
+        f"_a{round(QLearningAgent.__init__.__defaults__[0] * 100):03d}"
+    )
     output_dir.mkdir(exist_ok=True)
 
     output_path = output_dir / "strategy_comparison.png"
@@ -656,7 +679,11 @@ def plot_q_table(agent, seed):
     plt.tight_layout()
 
     # Save the plot
-    output_dir = Path("risultati_manutenzione")
+    output_dir = Path(
+        f"risultati_man_e{TRAIN_EPISODES}"
+        f"_d{int(EPSILON_DECAY_FRACTION * 10):02d}"
+        f"_a{round(QLearningAgent.__init__.__defaults__[0] * 100):03d}"
+    )
     output_dir.mkdir(exist_ok=True)
 
     output_path = output_dir / f"q_table_seed_{seed}.png"
@@ -715,7 +742,11 @@ def plot_operational_metrics(strategies):
     plt.tight_layout()
 
     # Save the plot
-    output_dir = Path("risultati_manutenzione")
+    output_dir = Path(
+        f"risultati_man_e{TRAIN_EPISODES}"
+        f"_d{int(EPSILON_DECAY_FRACTION * 10):02d}"
+        f"_a{round(QLearningAgent.__init__.__defaults__[0] * 100):03d}"
+    )
     output_dir.mkdir(exist_ok=True)
 
     output_path = output_dir / "operational_metrics.png"
