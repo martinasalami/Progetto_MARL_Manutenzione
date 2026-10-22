@@ -29,7 +29,7 @@ N_STATES = 3
 N_ACTIONS = 2
 
 # Training parameters
-TRAIN_EPISODES = 5000
+TRAIN_EPISODES = 2500
 EPSILON_START = 1.0
 EPSILON_MIN = 0.02
 EPSILON_DECAY_FRACTION = 0.70
@@ -190,8 +190,8 @@ def train_agent(env, agent, n_episodes=TRAIN_EPISODES):
     rewards = []
     epsilons = []
 
-    #decay_episodes = max(1, int(n_episodes * EPSILON_DECAY_FRACTION))
-    decay_episodes = 1750
+    decay_episodes = max(1, int(n_episodes * EPSILON_DECAY_FRACTION))
+    #decay_episodes = 1750
 
     for episode in range(n_episodes):
 
