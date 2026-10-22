@@ -99,7 +99,7 @@ class MaintenanceEnv:
 class QLearningAgent:
     """Represent a tabular Q-learning agent"""
 
-    def __init__(self, alpha=0.12, gamma=0.95, seed=None):
+    def __init__(self, alpha=0.2, gamma=0.95, seed=None):
         """Initialize Q-values, learning parameters, and random generator"""
         self.alpha = alpha
         self.gamma = gamma
